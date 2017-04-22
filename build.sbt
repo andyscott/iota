@@ -46,6 +46,10 @@ lazy val `readme` = module("readme")
   .settings(
     tutScalacOptions ~= (_.filterNot(Set("-Yno-predef"))))
 
+lazy val `bench` = module("bench")
+  .dependsOn(`core`)
+  .settings(noPublishSettings)
+
 lazy val macroSettings: Seq[Setting[_]] = Seq(
   libraryDependencies ++= Seq(
     scalaOrganization.value % "scala-compiler" % scalaVersion.value % Provided,

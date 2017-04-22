@@ -116,7 +116,11 @@ final class CopKFunctionKMacros(val c: Context) {
   private[this] def destructFunctionKInput(tpe: Type, G: Type): ValidatedNel[String, Type] =
     tpe match {
       case TypeRef(_, sym, f :: g :: Nil) if g =:= G => Validated.valid(f)
-      case _ => Validated.invalidNel(s"unable to destruct input for $tpe as FunctionK[?, $G]")
+      case RefinedType(anyRef :: tpe2 :: Nil, scope) => // TODO: check anyRef is scala.AnyRef
+        destructFunctionKInput(tpe2.dealias, G)
+      case _ =>
+        Validated.invalidNel(s"unable to destruct input $tpe as FunctionK[?, $G]\n" +
+          s"  underlying type tree: ${showRaw{tpe}} (class ${tpe.getClass})")
     }
 
   private[this] def result[T](either: Either[NonEmptyList[String], Tree]): c.Expr[T] =
