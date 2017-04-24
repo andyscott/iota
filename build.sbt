@@ -55,11 +55,6 @@ lazy val `bench` = module("bench")
     "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % V.scalacheckShapeless
   ))
 
-lazy val `bench-run` = module("bench-run")
-  .enablePlugins(JmhPlugin)
-  .dependsOn(`bench`)
-  .settings(noPublishSettings)
-
 lazy val macroSettings: Seq[Setting[_]] = Seq(
   libraryDependencies ++= Seq(
     scalaOrganization.value % "scala-compiler" % scalaVersion.value % Provided,
