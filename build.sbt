@@ -47,7 +47,17 @@ lazy val `readme` = module("readme")
     tutScalacOptions ~= (_.filterNot(Set("-Yno-predef"))))
 
 lazy val `bench` = module("bench")
+  .enablePlugins(JmhPlugin)
   .dependsOn(`core`)
+  .settings(noPublishSettings)
+  .settings(libraryDependencies ++= Seq(
+    "org.scalacheck"             %% "scalacheck"                % V.scalacheck,
+    "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % V.scalacheckShapeless
+  ))
+
+lazy val `bench-run` = module("bench-run")
+  .enablePlugins(JmhPlugin)
+  .dependsOn(`bench`)
   .settings(noPublishSettings)
 
 lazy val macroSettings: Seq[Setting[_]] = Seq(

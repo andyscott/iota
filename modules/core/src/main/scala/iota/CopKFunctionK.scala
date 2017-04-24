@@ -87,15 +87,27 @@ final class CopKFunctionKMacros(val c: Context) {
     L: Type,
     G: Symbol,
     arrs: List[Tree]
-  ): Tree = q"""
+  ): Tree = {
+
+    val namedArrs = arrs.zipWithIndex.map { case (arr, i) =>
+      (TermName(s"arr$i"), arr, i) }
+
+    val defs = namedArrs.map { case (n, arr, _) =>
+      q"private[this] def $n = $arr.asInstanceOf[cats.arrow.FunctionK[Any, $G]]" }
+
+    val cases = namedArrs.map { case (n, _, i) =>
+      cq"$i => $n(ca.value)" }
+
+    q"""
     new cats.arrow.FunctionK[({type F[a] = CopK[$L, a]})#F, $G] {
-      private[this] val arrows: Vector[cats.arrow.FunctionK[Any, $G]] =
-        Vector[Any](..$arrs).asInstanceOf[Vector[cats.arrow.FunctionK[Any, $G]]]
-      override def apply[A](ca: CopK[$L, A]): $G[A] = ca match {
-        case CopK.Value(i, v: Any) => arrows(i)(v)
-      }
+      ..$defs
+      override def apply[A](ca: CopK[$L, A]): $G[A] =
+        (ca.index: @scala.annotation.switch) match {
+          case ..$cases
+        }
     }
     """
+  }
 
   private[this] def summonFunctionK(F: Type, G: Symbol): ValidatedNel[String, Tree] =
     Validated

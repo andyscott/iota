@@ -22,13 +22,14 @@ object CopTests extends Properties("CopTests") {
   type OneTwoThree = One :: Two :: Three :: TNil
   type ThreeTwoOne = Three :: Two :: One :: TNil
 
+
   def checkInject[A, L <: TList](
     gen: Gen[A],
     inj: Cop.Inject[A, L],
     index: Int
   ): Prop =
     forAll(gen)(v =>
-      inj.inj(v) ?= Cop.Value(index, v))
+      inj.inj(v) ?= Cop(index, v))
 
   property("inject One into OneTwoThree") =
     checkInject(

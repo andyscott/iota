@@ -7,11 +7,15 @@ package iota_bench
 import iota._
 
 import cats._
-import cats.data._
+import cats.data.{ State => _, _}
 import cats.free._
 
+import org.scalacheck._
+import org.scalacheck.Arbitrary.arbitrary
+import org.scalacheck.Gen.oneOf
 
-object CatsStyle {
+
+object Cats {
   import Ops._
 
   type AlgebraA[A] = AOp[A]
@@ -25,9 +29,26 @@ object CatsStyle {
   val evalC: AlgebraC ~> Id = COp.eval or evalB
   val evalD: AlgebraD ~> Id = DOp.eval or evalC
   val evalE: AlgebraE ~> Id = EOp.eval or evalD
+
+  private[this] implicit class InjGenOps[F[_]](gf: Gen[F[_]]) {
+    def inj[G[_]](implicit ev: InjK[F, G]): Gen[G[_]] = gf.map(f => ev(f))
+  }
+
+  /*
+  val genAlgebraA: Gen[AlgebraA[_]] = AOp.gen.inj[AlgebraA]
+  val genAlgebraB: Gen[AlgebraB[_]] = oneOf(AOp.gen.inj[AlgebraB], BOp.gen.inj[AlgebraB])
+  val genAlgebraC: Gen[AlgebraC[_]] = oneOf(AOp.gen.inj[AlgebraC], BOp.gen.inj[AlgebraC], COp.gen.inj[AlgebraC])
+  val genAlgebraD: Gen[AlgebraD[_]] = oneOf(AOp.gen.inj[AlgebraD], BOp.gen.inj[AlgebraD], COp.gen.inj[AlgebraD], COp.gen.inj[AlgebraD])
+  val genAlgebraE: Gen[AlgebraE[_]] = oneOf(AOp.gen.inj[AlgebraE], BOp.gen.inj[AlgebraE], COp.gen.inj[AlgebraE], COp.gen.inj[AlgebraE], DOp.gen.inj[AlgebraE])*/
+
+  val genAlgebraA: Gen[AlgebraA[_]] = AOp.gen.inj[AlgebraA]
+  val genAlgebraB: Gen[AlgebraB[_]] = AOp.gen.inj[AlgebraB]
+  val genAlgebraC: Gen[AlgebraC[_]] = AOp.gen.inj[AlgebraC]
+  val genAlgebraD: Gen[AlgebraD[_]] = AOp.gen.inj[AlgebraD]
+  val genAlgebraE: Gen[AlgebraE[_]] = AOp.gen.inj[AlgebraE]
 }
 
-object IotaStyle {
+object Iota {
   import Ops._
 
   import KList.::
@@ -37,15 +58,69 @@ object IotaStyle {
   type AlgebraD[A] = CopK[DOp :: COp :: BOp :: AOp :: KNil, A]
   type AlgebraE[A] = CopK[EOp :: DOp :: COp :: BOp :: AOp :: KNil, A]
 
-
-  val evalA: AlgebraA ~> Id = CopK.FunctionK.of[AlgebraA, Id](AOp.eval)
+  val evalA: AlgebraA ~> Id = CopK.FunctionK.of(AOp.eval)
   val evalB: AlgebraB ~> Id = CopK.FunctionK.of(AOp.eval, BOp.eval)
   val evalC: AlgebraC ~> Id = CopK.FunctionK.of(AOp.eval, BOp.eval, COp.eval)
   val evalD: AlgebraD ~> Id = CopK.FunctionK.of(AOp.eval, BOp.eval, COp.eval, DOp.eval)
   val evalE: AlgebraE ~> Id = CopK.FunctionK.of(AOp.eval, BOp.eval, COp.eval, DOp.eval, EOp.eval)
+
+  private[this] implicit class InjGenOps[F[_]](gf: Gen[F[_]]) {
+    def inj[G[_]](implicit ev: InjK[F, G]): Gen[G[_]] = gf.map(f => ev(f))
+  }
+
+  /*
+  val genAlgebraA: Gen[AlgebraA[_]] = AOp.gen.inj[AlgebraA]
+  val genAlgebraB: Gen[AlgebraB[_]] = oneOf(AOp.gen.inj[AlgebraB], BOp.gen.inj[AlgebraB])
+  val genAlgebraC: Gen[AlgebraC[_]] = oneOf(AOp.gen.inj[AlgebraC], BOp.gen.inj[AlgebraC], COp.gen.inj[AlgebraC])
+  val genAlgebraD: Gen[AlgebraD[_]] = oneOf(AOp.gen.inj[AlgebraD], BOp.gen.inj[AlgebraD], COp.gen.inj[AlgebraD], COp.gen.inj[AlgebraD])
+  val genAlgebraE: Gen[AlgebraE[_]] = oneOf(AOp.gen.inj[AlgebraE], BOp.gen.inj[AlgebraE], COp.gen.inj[AlgebraE], COp.gen.inj[AlgebraE], DOp.gen.inj[AlgebraE])
+   */
+
+  val genAlgebraA: Gen[AlgebraA[_]] = AOp.gen.inj[AlgebraA]
+  val genAlgebraB: Gen[AlgebraB[_]] = AOp.gen.inj[AlgebraB]
+  val genAlgebraC: Gen[AlgebraC[_]] = AOp.gen.inj[AlgebraC]
+  val genAlgebraD: Gen[AlgebraD[_]] = AOp.gen.inj[AlgebraD]
+  val genAlgebraE: Gen[AlgebraE[_]] = AOp.gen.inj[AlgebraE]
 }
 
-object Bench extends App {
+import java.util.concurrent.TimeUnit
+import org.openjdk.jmh.annotations._
+
+@State(Scope.Thread)
+@BenchmarkMode(Array(Mode.Throughput))
+@OutputTimeUnit(TimeUnit.SECONDS)
+class Bench {
+
+  /*
+  @Benchmark def catsGenA: Any = Cats.genAlgebraA.sample.get
+  @Benchmark def catsGenB: Any = Cats.genAlgebraB.sample.get
+  @Benchmark def catsGenC: Any = Cats.genAlgebraC.sample.get
+  @Benchmark def catsGenD: Any = Cats.genAlgebraD.sample.get
+  @Benchmark def catsGenE: Any = Cats.genAlgebraE.sample.get
+
+  @Benchmark def iotaGenA: Any = Iota.genAlgebraA.sample.get
+  @Benchmark def iotaGenB: Any = Iota.genAlgebraB.sample.get
+  @Benchmark def iotaGenC: Any = Iota.genAlgebraC.sample.get
+  @Benchmark def iotaGenD: Any = Iota.genAlgebraD.sample.get
+  @Benchmark def iotaGenE: Any = Iota.genAlgebraE.sample.get
+
+  @Benchmark def catsEvalA: Id[_] = Cats.evalA(Cats.genAlgebraA.sample.get)
+  @Benchmark def catsEvalB: Id[_] = Cats.evalB(Cats.genAlgebraB.sample.get)
+  @Benchmark def catsEvalC: Id[_] = Cats.evalC(Cats.genAlgebraC.sample.get)
+  @Benchmark def catsEvalD: Id[_] = Cats.evalD(Cats.genAlgebraD.sample.get)
+  @Benchmark def catsEvalE: Id[_] = Cats.evalE(Cats.genAlgebraE.sample.get)
+  */
+
+  @Benchmark def iotaEvalA: Id[_] = Iota.evalA(Iota.genAlgebraA.sample.get)
+  @Benchmark def iotaEvalB: Id[_] = Iota.evalB(Iota.genAlgebraB.sample.get)
+  @Benchmark def iotaEvalC: Id[_] = Iota.evalC(Iota.genAlgebraC.sample.get)
+  @Benchmark def iotaEvalD: Id[_] = Iota.evalD(Iota.genAlgebraD.sample.get)
+  @Benchmark def iotaEvalE: Id[_] = Iota.evalE(Iota.genAlgebraE.sample.get)
+
+}
+
+/*
+object Benchy extends App {
   import Ops._
 
   def timeEvaluation[F[_]](eval: F ~> Id): Unit = {
@@ -54,7 +129,7 @@ object Bench extends App {
   }
 
   {
-    import CatsStyle._
+    import Cats._
     timeEvaluation(evalA)
     timeEvaluation(evalB)
     timeEvaluation(evalC)
@@ -63,7 +138,7 @@ object Bench extends App {
   }
 
   {
-    import IotaStyle._
+    import Iota._
     timeEvaluation(evalA)
     timeEvaluation(evalB)
     timeEvaluation(evalC)
@@ -72,7 +147,6 @@ object Bench extends App {
   }
 
 }
-
 
 object GenStuff extends App {
   import scala.Predef._
@@ -116,17 +190,19 @@ object GenStuff extends App {
     "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z")
 
   alphabet.take(5).foreach { l =>
-    println(template(l.toUpperCase))
+    //println(template(l.toUpperCase))
   }
 
 }
+*/
 
-object Ops {
+package Ops {
 
   sealed trait AOp[A]
   object AOp {
     case class Op1(v: Int) extends AOp[Int]
-    lazy val eval = λ[AOp ~> Id] { case AOp.Op1(v) => v + 1 }
+    val eval = λ[AOp ~> Id] { case AOp.Op1(v) => v + 1 }
+    val gen: Gen[AOp[_]] = Gen.const(Op1(100)) // arbitrary[Int].map(Op1)
   }
   class AOps[F[_]](implicit inj: InjK[AOp, F]) {
     def op1(v: Int): Free[F, Int] = Free.liftF(inj(AOp.Op1(v)))
@@ -135,7 +211,8 @@ object Ops {
   sealed trait BOp[A]
   object BOp {
     case class Op1(v: Int) extends BOp[Int]
-    lazy val eval = λ[BOp ~> Id] { case BOp.Op1(v) => v + 1 }
+    val eval = λ[BOp ~> Id] { case BOp.Op1(v) => v + 1 }
+    val gen: Gen[BOp[_]] = Gen.const(Op1(100))
   }
   class BOps[F[_]](implicit inj: InjK[BOp, F]) {
     def op1(v: Int): Free[F, Int] = Free.liftF(inj(BOp.Op1(v)))
@@ -144,7 +221,8 @@ object Ops {
   sealed trait COp[A]
   object COp {
     case class Op1(v: Int) extends COp[Int]
-    lazy val eval = λ[COp ~> Id] { case COp.Op1(v) => v + 1 }
+    val eval = λ[COp ~> Id] { case COp.Op1(v) => v + 1 }
+    val gen: Gen[COp[_]] = Gen.const(Op1(100))
   }
   class COps[F[_]](implicit inj: InjK[COp, F]) {
     def op1(v: Int): Free[F, Int] = Free.liftF(inj(COp.Op1(v)))
@@ -153,7 +231,8 @@ object Ops {
   sealed trait DOp[A]
   object DOp {
     case class Op1(v: Int) extends DOp[Int]
-    lazy val eval = λ[DOp ~> Id] { case DOp.Op1(v) => v + 1 }
+    val eval = λ[DOp ~> Id] { case DOp.Op1(v) => v + 1 }
+    val gen: Gen[DOp[_]] = Gen.const(Op1(100))
   }
   class DOps[F[_]](implicit inj: InjK[DOp, F]) {
     def op1(v: Int): Free[F, Int] = Free.liftF(inj(DOp.Op1(v)))
@@ -162,10 +241,10 @@ object Ops {
   sealed trait EOp[A]
   object EOp {
     case class Op1(v: Int) extends EOp[Int]
-    lazy val eval = λ[EOp ~> Id] { case EOp.Op1(v) => v + 1 }
+    val eval = λ[EOp ~> Id] { case EOp.Op1(v) => v + 1 }
+    val gen: Gen[EOp[_]] = Gen.const(Op1(100))
   }
   class EOps[F[_]](implicit inj: InjK[EOp, F]) {
     def op1(v: Int): Free[F, Int] = Free.liftF(inj(EOp.Op1(v)))
   }
-
 }
