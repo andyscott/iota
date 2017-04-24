@@ -12,7 +12,7 @@ import cats.instances.all._
 import scala.reflect.macros.whitebox.Context
 import scala.reflect.macros.TypecheckException
 
-final class CopKFunctionKMacros(val c: Context) {
+final class CopKFunctionKMacros( val c: Context) {
   import c.universe._
 
   private[this] lazy val klists = new SharedKListMacros[c.type](c)
@@ -23,21 +23,20 @@ final class CopKFunctionKMacros(val c: Context) {
       evG: c.WeakTypeTag[G[_]]
   ): c.Expr[F ~> G] = {
 
-    val F = evF.tpe
-    val G = evG.tpe match {
-      case TypeRef(_, sym, Nil) => sym
-      case tpe => tpe.typeSymbol
-    }
+    val F = symbol(evF.tpe)
+    val G = symbol(evG.tpe)
 
     result(for {
       L    <- destructCopK(F).leftMap(NonEmptyList.of(_))
       tpes <- klists.klistTypesCached(L).leftMap(NonEmptyList.of(_))
+
       unorderedPairs <- Traverse[List].traverse(args.toList)(arg =>
         destructFunctionKInput(arg.tree.tpe, evG.tpe.dealias).map((_, arg.tree))).toEither
       lookup = unorderedPairs.toMap
+
       arrs <- Traverse[List].traverse(tpes)(tpe =>
         lookup.get(tpe).toRight(s"Missing interpreter FunctionK[$tpe, $G]").toValidatedNel).toEither
-    } yield makeInterpreter(L, G, arrs))
+    } yield makeInterpreter(F, L, G, arrs))
   }
 
   def summon[F[a] <: CopK[_, a], G[_]](
@@ -46,21 +45,26 @@ final class CopKFunctionKMacros(val c: Context) {
       evG: c.WeakTypeTag[G[_]]
   ): c.Expr[F ~> G] = {
 
-    val F = evF.tpe
-    val G = evG.tpe match {
-      case TypeRef(_, sym, Nil) => sym
-      case tpe => tpe.typeSymbol
-    }
+    val F = symbol(evF.tpe)
+    val G = symbol(evG.tpe)
 
     result(for {
       L    <- destructCopK(F).leftMap(NonEmptyList.of(_))
       tpes <- klists.klistTypesCached(L).leftMap(NonEmptyList.of(_))
+
       arrs <- Traverse[List].traverse(tpes)(tpe =>
                 summonFunctionK(tpe, G)).toEither
-    } yield makeInterpreter(L, G, arrs))
+    } yield makeInterpreter(F, L, G, arrs))
   }
 
+  private[this] def symbol(tpe: Type): Symbol =
+    tpe match {
+      case TypeRef(_, sym, Nil) => sym
+      case _                    => tpe.typeSymbol
+    }
+
   private[this] def makeInterpreter(
+    F: Symbol,
     L: Type,
     G: Symbol,
     arrs: List[Tree]
@@ -76,9 +80,9 @@ final class CopKFunctionKMacros(val c: Context) {
       cq"$i => $n(ca.value)" }
 
     q"""
-    new cats.arrow.FunctionK[({type F[a] = CopK[$L, a]})#F, $G] {
+    new cats.arrow.FunctionK[$F, $G] {
       ..$defs
-      override def apply[A](ca: CopK[$L, A]): $G[A] =
+      override def apply[A](ca: $F[A]): $G[A] =
         (ca.index: @scala.annotation.switch) match {
           case ..$cases
         }
@@ -92,15 +96,12 @@ final class CopKFunctionKMacros(val c: Context) {
         c.typecheck(q"scala.Predef.implicitly[cats.arrow.FunctionK[$F, $G]]"))
       .leftMap(t => NonEmptyList.of(t.msg))
 
-  private[this] def destructCopK(tpe: Type): Either[String, Type] =
-    tpe match {
-      case TypeRef(_, sym, _) =>
-        sym.asType.toType.dealias match {
-          case TypeRef(_, _, t :: _ :: Nil) => Right(t)
-          case t => Left(s"unespected type $t in destructured $tpe")
-        }
-      case _ => Left(s"unable to destruct $tpe as CopK")
+  private[this] def destructCopK(F: Symbol): Either[String, Type] =
+    F.asType.toType.dealias match {
+      case TypeRef(_, _, t :: _ :: Nil) => Right(t)
+      case t => Left(s"unespected type $t in destructured $F")
     }
+
 
   private[this] def destructFunctionKInput(tpe: Type, G: Type): ValidatedNel[String, Type] =
     tpe match {

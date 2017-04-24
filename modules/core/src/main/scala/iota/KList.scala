@@ -27,21 +27,4 @@ object KList {
     implicit def materializePos[L <: KList, F[_]]: Pos[L, F] =
       macro internal.KListMacros.materializePos[L, F]
   }
-
-  /** A type class that witnesses the type constructor at a given index in a
-    * type constructor list
-    *
-    * @tparam L the type constructor list
-    * @tparam I the singleton index type
-    */
-  trait AtPos[L <: KList, I <: Int] {
-    type Out[A]
-  }
-
-  object AtPos {
-    type Aux[L <: KList, I <: Int, F[_]] = AtPos[L, I] { type Out[A] = F[A] }
-    def apply[L <: KList, I <: Int](implicit ev: AtPos[L, I]): AtPos.Aux[L, I, ev.Out] = ev
-    implicit def materializeAtPos[L <: KList, I <: Int, F[_]]: AtPos.Aux[L, I, F] =
-      macro internal.KListMacros.materializeAtPos[L, I, F]
-  }
 }

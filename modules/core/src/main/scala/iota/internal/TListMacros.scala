@@ -6,14 +6,13 @@ package iota
 package internal
 
 import scala.unchecked
-import scala.reflect.macros.whitebox.Context
-import scala.reflect.ClassTag
+import scala.reflect.macros.blackbox.Context
 import scala.annotation.tailrec
 
 import scala.collection.immutable.Map
 
-object TListMacros {
-  @volatile private[TListMacros] var klistCache: Map[Any, Any] = Map.empty
+private[internal] object TListMacros {
+  @volatile var klistCache: Map[Any, Any] = Map.empty
 }
 
 class TListMacros(val c: Context) {
@@ -36,23 +35,6 @@ class TListMacros(val c: Context) {
       q"new TList.Pos[$L, $A]{ override val index: Int = $index }")
   }
 
-  def materializeAtPos[L <: TList, I <: Int, A](
-    implicit
-      evL: c.WeakTypeTag[L],
-      evI: c.WeakTypeTag[I]
-  ): c.Expr[TList.AtPos.Aux[L, I, A]] = {
-
-    val L = evL.tpe.dealias
-    val I = evI.tpe.dealias
-
-    result(for {
-      algebras <- klistTypesCached(L)
-      index    <- singletonTypeValue[Int](I)
-      tpe      <- algebras.lift(index).toRight(s"index $index out of bounds for type list $algebras")
-    } yield
-      q"new TList.AtPos[$L, $I] { type Out = $tpe }")
-  }
-
   def result[T](either: Either[String, Tree]): c.Expr[T] =
     either fold (
       error => c.abort(c.enclosingPosition, error),
@@ -60,13 +42,6 @@ class TListMacros(val c: Context) {
 
   private[this] val TNilSym          = typeOf[TNil].typeSymbol
   private[this] val TConsSym         = typeOf[TCons[Nothing, Nothing]].typeSymbol
-
-  private[this] def singletonTypeValue[T](tpe: Type)(
-    implicit T: ClassTag[T]
-  ): Either[String, T] = tpe match {
-    case ConstantType(Constant(t: T)) => Right(t)
-    case _ => Left(s"$tpe is not a singleton of type $T")
-  }
 
   @tailrec
   private[this] final def klistFoldLeft[A](tpe: Type)(a0: A)(f: (A, Type) => A): Either[String, A] = tpe match {

@@ -6,8 +6,7 @@ package iota
 package internal
 
 import scala.unchecked
-import scala.reflect.macros.whitebox.Context
-import scala.reflect.ClassTag
+import scala.reflect.macros.blackbox.Context
 import scala.annotation.tailrec
 
 import scala.collection.immutable.Map
@@ -34,30 +33,6 @@ class KListMacros(val c: Context) {
       q"new KList.Pos[$L, $F]{ override val index: Int = $index }")
   }
 
-  def materializeAtPos[L <: KList, I <: Int, F[_]](
-    implicit
-      evL: c.WeakTypeTag[L],
-      evI: c.WeakTypeTag[I]
-  ): c.Expr[KList.AtPos.Aux[L, I, F]] = {
-
-    val L = evL.tpe.dealias
-    val I = evI.tpe.dealias
-
-    result(for {
-      algebras <- klists.klistTypesCached(L)
-      index    <- singletonTypeValue[Int](I)
-      tpe      <- algebras.lift(index).toRight(s"index $index out of bounds for type list $algebras")
-    } yield
-      q"new KList.AtPos[$L, $I] { type Out[A] = ${tpe.typeSymbol}[A] }")
-  }
-
-  private[this] def singletonTypeValue[T](tpe: Type)(
-    implicit T: ClassTag[T]
-  ): Either[String, T] = tpe match {
-    case ConstantType(Constant(t: T)) => Right(t)
-    case _ => Left(s"$tpe is not a singleton of type $T")
-  }
-
   def result[T](either: Either[String, Tree]): c.Expr[T] =
     either fold (
       error => c.abort(c.enclosingPosition, error),
@@ -66,7 +41,7 @@ class KListMacros(val c: Context) {
 }
 
 private[internal] object SharedKListMacros {
-  @volatile private[SharedKListMacros] var klistCache: Map[Any, Any] = Map.empty
+  @volatile var klistCache: Map[Any, Any] = Map.empty
 }
 
 private[internal] class SharedKListMacros[C <: Context](val c: C) {
